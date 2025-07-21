@@ -1,0 +1,180 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth.js relationships
+  accounts Account[]
+  sessions Session[]
+
+  // App relationships
+  chats       Chat[]
+  memories    Memory[]
+  preferences UserPreference[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model Chat {
+  id          String   @id @default(cuid())
+  title       String   @default("New Chat")
+  model       String   @default("o3")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  // Relationships
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  files       ChatFile[]
+
+  @@map("chats")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  role        String   // 'user', 'assistant', 'system'
+  model       String?
+  createdAt   DateTime @default(now())
+  chatId      String
+
+  // Relationships
+  chat        Chat           @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  files       MessageFile[]
+
+  @@map("messages")
+}
+
+model File {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  path        String
+  url         String?
+  content     String?  // Extracted text content for search/context
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  chatFiles     ChatFile[]
+  messageFiles  MessageFile[]
+
+  @@map("files")
+}
+
+model ChatFile {
+  id      String @id @default(cuid())
+  chatId  String
+  fileId  String
+
+  // Relationships
+  chat    Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  file    File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, fileId])
+  @@map("chat_files")
+}
+
+model MessageFile {
+  id        String @id @default(cuid())
+  messageId String
+  fileId    String
+
+  // Relationships
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file      File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, fileId])
+  @@map("message_files")
+}
+
+model Memory {
+  id          String   @id @default(cuid())
+  type        String   // 'preference', 'fact', 'context', 'behavior'
+  key         String
+  value       String
+  confidence  Float    @default(0.5)  // 0.0 to 1.0
+  importance  Float    @default(0.5)  // 0.0 to 1.0
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  // Relationships
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, key])
+  @@map("memories")
+}
+
+model UserPreference {
+  id        String   @id @default(cuid())
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("user_preferences")
+} 
